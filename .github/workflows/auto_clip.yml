@@ -69,10 +69,17 @@ jobs:
           if [ -L output ]; then rm -f output; fi
           mkdir -p output temp
 
-      - name: Install FFmpeg & Hindi/Indic Noto Fonts
+      - name: Instant Setup (Hindi Font + FFmpeg Check)
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y ffmpeg fonts-noto-core zstd curl
+          mkdir -p assets/fonts output temp
+          curl -fsSL -o assets/fonts/NotoSansDevanagari-Bold.ttf \
+            "https://raw.githubusercontent.com/notofonts/devanagari/main/fonts/NotoSansDevanagari/hinted/ttf/NotoSansDevanagari-Bold.ttf" \
+            || curl -fsSL -o assets/fonts/NotoSansDevanagari-Bold.ttf \
+            "https://github.com/google/fonts/raw/main/ofl/notosansdevanagari/NotoSansDevanagari%5Bwdth%2Cwght%5D.ttf"
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          ffmpeg -version | head -n 1
 
       - name: Set up Deno (YouTube JS Runtime)
         uses: denoland/setup-deno@v2
