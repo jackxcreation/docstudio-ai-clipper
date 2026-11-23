@@ -154,9 +154,20 @@ def slice_words_window(all_segments: List[Dict[str, Any]], clip_start: float, cl
     }
 
 
+import shutil
+
 def _cookie_args() -> List[str]:
+    args: List[str] = []
+    if shutil.which("deno"):
+        args.extend(["--js-runtimes", "deno"])
+    elif shutil.which("node"):
+        args.extend(["--js-runtimes", "node"])
     ck = os.path.join(ROOT_DIR, "cookies.txt")
-    return ["--cookies", ck] if (os.path.exists(ck) and os.path.getsize(ck) > 20) else []
+    if os.path.exists(ck) and os.path.getsize(ck) > 20:
+        args.extend(["--cookies", ck])
+    else:
+        args.extend(["--extractor-args", "youtube:player_client=android,tv_embedded,web"])
+    return args
 
 
 def fetch_yt_captions_only(url: str, temp_dir: str) -> Tuple[str | None, float]:

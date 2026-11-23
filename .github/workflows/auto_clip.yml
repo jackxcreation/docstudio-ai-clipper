@@ -74,6 +74,11 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg fonts-noto-core zstd curl
 
+      - name: Set up Deno (YouTube JS Runtime)
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
