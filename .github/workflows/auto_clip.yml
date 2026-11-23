@@ -112,7 +112,10 @@ jobs:
           YT_COOKIES: ${{ secrets.YT_COOKIES }}
         run: |
           if [ -n "$YT_COOKIES" ]; then
-            printf "%s" "$YT_COOKIES" > cookies.txt
+            printf "%s" "$YT_COOKIES" | tr -d '\r' > cookies.txt
+            echo "✅ YT_COOKIES loaded ($(wc -l < cookies.txt) lines)"
+          else
+            echo "⚠️ YT_COOKIES secret empty!"
           fi
 
       - name: Run AI Auto-Clipper & Video Editor
