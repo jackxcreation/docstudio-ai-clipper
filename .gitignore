@@ -6,3 +6,6 @@ output/*.mp4
 library_meta.json
 cookies.txt
 assets/fonts/*.ttf
+
+output
+output/
