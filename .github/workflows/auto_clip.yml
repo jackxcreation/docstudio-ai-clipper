@@ -64,6 +64,11 @@ jobs:
       - name: Checkout DocStudio Code
         uses: actions/checkout@v4
 
+      - name: Clean Termux Symlink if Present
+        run: |
+          if [ -L output ]; then rm -f output; fi
+          mkdir -p output temp
+
       - name: Install FFmpeg & Hindi/Indic Noto Fonts
         run: |
           sudo apt-get update -y
@@ -73,7 +78,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Install Python Dependencies
         run: |
@@ -136,13 +140,14 @@ jobs:
           retention-days: 7
 
       - name: Send Clips to Telegram (Optional)
-        if: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          for f in output/*.mp4; do
-            [ -e "$f" ] || continue
-            curl -s -F chat_id="$CHAT_ID" -F video=@"$f" -F caption="$(basename "$f")" \
-              "https://api.telegram.org/bot${BOT_TOKEN}/sendVideo" >/dev/null
-          done
+          if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
+            for f in output/*.mp4; do
+              [ -e "$f" ] || continue
+              curl -s -F chat_id="$CHAT_ID" -F video=@"$f" -F caption="$(basename "$f")" \
+                "https://api.telegram.org/bot${BOT_TOKEN}/sendVideo" >/dev/null
+            done
+          fi
