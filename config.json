@@ -1,0 +1,15 @@
+{
+  "width": 1080,
+  "height": 1920,
+  "fps": 30,
+  "color_grade": "documentary",
+  "voice": "en_male",
+  "voice_rate": "+4%",
+  "bgm_volume": 0.14,
+  "sfx_volume": 0.30,
+  "enable_online_broll": true,
+  "llama_cli_path": "~/doc-studio/models/llama-cli",
+  "llama_model_path": "~/doc-studio/models/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+  "whisper_cli_path": "~/doc-studio/models/whisper-cli",
+  "whisper_model_path": "~/doc-studio/models/ggml-base.bin"
+}

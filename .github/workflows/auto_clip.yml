@@ -1,0 +1,148 @@
+name: DocStudio AI Auto-Clipper (Ollama + FFmpeg)
+
+on:
+  workflow_dispatch:
+    inputs:
+      youtube_url:
+        description: 'YouTube Video URL'
+        required: true
+        type: string
+      clips_count:
+        description: 'Number of Clips (1-15)'
+        required: true
+        default: '3'
+        type: string
+      aspect_ratio:
+        description: 'Format (9:16, 16:9, 1:1)'
+        required: true
+        default: '9:16'
+        type: choice
+        options:
+          - '9:16'
+          - '16:9'
+          - '1:1'
+      dub_lang:
+        description: 'Translate & AI Dubbing Language'
+        required: true
+        default: 'orig'
+        type: choice
+        options:
+          - 'orig'
+          - 'hi'
+          - 'en'
+          - 'bn'
+          - 'ta'
+          - 'te'
+          - 'mr'
+          - 'es'
+      dub_voice:
+        description: 'AI Voiceover Style'
+        required: true
+        default: 'male'
+        type: choice
+        options:
+          - 'male'
+          - 'female'
+          - 'deep'
+      quality:
+        description: 'Resolution'
+        required: true
+        default: 'fast'
+        type: choice
+        options:
+          - 'fast'
+          - 'hd'
+  repository_dispatch:
+    types: [run-doc-studio]
+
+jobs:
+  clip-and-edit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout DocStudio Code
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg & Hindi/Indic Noto Fonts
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg fonts-noto-core zstd curl
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install numpy pillow yt-dlp edge-tts
+
+      - name: Cache Ollama Model (qwen2.5:7b)
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama
+          key: ollama-qwen25-7b-v1
+
+      - name: Install & Start Ollama + Pull qwen2.5:7b
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve > /tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:11434/api/tags >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          ollama pull qwen2.5:7b
+
+      - name: Setup Optional YouTube Cookies
+        env:
+          YT_COOKIES: ${{ secrets.YT_COOKIES }}
+        run: |
+          if [ -n "$YT_COOKIES" ]; then
+            printf "%s" "$YT_COOKIES" > cookies.txt
+          fi
+
+      - name: Run AI Auto-Clipper & Video Editor
+        env:
+          OLLAMA_MODEL: 'qwen2.5:7b'
+          IN_URL: ${{ github.event.inputs.youtube_url || github.event.client_payload.youtube_url }}
+          IN_CLIPS: ${{ github.event.inputs.clips_count || github.event.client_payload.clips_count || '3' }}
+          IN_ASPECT: ${{ github.event.inputs.aspect_ratio || github.event.client_payload.aspect_ratio || '9:16' }}
+          IN_DUB: ${{ github.event.inputs.dub_lang || github.event.client_payload.dub_lang || 'orig' }}
+          IN_VOICE: ${{ github.event.inputs.dub_voice || github.event.client_payload.dub_voice || 'male' }}
+          IN_QUAL: ${{ github.event.inputs.quality || github.event.client_payload.quality || 'fast' }}
+        run: |
+          HD_FLAG=""
+          if [ "$IN_QUAL" = "hd" ]; then
+            HD_FLAG="--hd"
+          fi
+          python clip.py \
+            --url "$IN_URL" \
+            --clips "$IN_CLIPS" \
+            --aspect "$IN_ASPECT" \
+            --dub "$IN_DUB" \
+            --voice "$IN_VOICE" \
+            $HD_FLAG
+
+      - name: Upload Edited Clips to GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: docstudio-edited-clips
+          path: output/*.mp4
+          retention-days: 7
+
+      - name: Send Clips to Telegram (Optional)
+        if: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          for f in output/*.mp4; do
+            [ -e "$f" ] || continue
+            curl -s -F chat_id="$CHAT_ID" -F video=@"$f" -F caption="$(basename "$f")" \
+              "https://api.telegram.org/bot${BOT_TOKEN}/sendVideo" >/dev/null
+          done
